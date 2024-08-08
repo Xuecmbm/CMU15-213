@@ -143,7 +143,8 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+    int result = ~(~x & ~y) & (~(x & y));
+    return result;
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -152,9 +153,7 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-
-  return 2;
-
+    return (1 << 31);
 }
 //2
 /*
@@ -165,7 +164,8 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+    int result = (!((x + 1) ^ (~x))) & (!!(x + 1));
+    return result;
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -176,7 +176,9 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+    int temp = (((0x55 << 8) | 0x55) << 8 |0x55) <<8 |0x55, result;
+    result = (x | temp) + 1;
+    return !result;
 }
 /* 
  * negate - return -x 
@@ -186,7 +188,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+    return (~x + 1);
 }
 //3
 /* 
@@ -199,7 +201,9 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+    int result = x ^ 0x30;
+    result = (!(result >> 4)) & ((!((result ^ 0x9) >> 1)) | (!(result & 0x8)));
+    return result;
 }
 /* 
  * conditional - same as x ? y : z 
@@ -209,7 +213,10 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+    int result = y ^ z;
+    int neg = (~(!x)) + 1;
+    result = result ^ (y & neg) ^(z & (~neg));
+    return result;
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -219,7 +226,10 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    int sub_res = x + ((~y) + 1), result, temp;
+    temp = sub_res >> 31;
+    result = !!temp | (!sub_res);
+    return result;
 }
 //4
 /* 
@@ -231,7 +241,7 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+    return (((x ^ (~x + 1)) >> 31) + 1) & (~x >> 31);
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -245,8 +255,27 @@ int logicalNeg(int x) {
  *  Max ops: 90
  *  Rating: 4
  */
-int howManyBits(int x) {
-  return 0;
+int howManyBits(int x) { //这道没想出来，参考https://www.cnblogs.com/wehoon/p/15306857.html，其他谜题也比我解的优雅
+    // 如果是负数取反, 统一转换为找最高位1
+    // is_neg = 0  --> 0xff & x --> x
+    // is_neg = 1  --> (0xfe & x) | (0x01 & ~x) --> ~x
+    int is_neg = (x >> 31), b16, b8, b4, b2, b1, b0;
+
+    x = (~is_neg & x) | (is_neg & ~x);
+
+    b16 = (!!(x >> 16)) << 4; // if high 16 bits has 1 b16 = 16 else b16 = 0
+    x = x >> b16;
+    b8 = (!!(x >> 8)) << 3;
+    x = x >> b8;
+    b4 = (!!(x >> 4)) << 2;
+    x = x >> b4;
+    b2 = (!!(x >> 2)) << 1;
+    x = x >> b2;
+    b1 = !!(x >> 1);
+    x = x >> b1;
+    b0 = x;
+    
+    return b16 + b8 + b4 + b2 + b1 + b0 + 1;    
 }
 //float
 /* 
@@ -261,7 +290,14 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+    int exponent = (uf >> 23) & 0xFF , fraction = uf & 0x7FFFFF, result;
+    if(exponent == 0xFF)return uf;
+    if(exponent == 0){
+        result = (uf & 0xFF800000) | (fraction << 1);
+    }else{
+        result = (uf & 0x807FFFFF) | ((exponent + 1) << 23);
+    }
+    return result;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -276,7 +312,14 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+    int sign = uf >> 31, exponent = (uf >> 23) & 0xFF , fraction = uf & 0x7FFFFF, result;
+    if(exponent == 0 || exponent - 127 < 0)return 0x0;
+    if(exponent == 0xFF || exponent - 127 > 31)return 0x80000000;
+
+    result = (1 + (fraction >> 23)) << (exponent - 127);
+    if(sign)result = ~result + 1;
+
+    return result;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -292,5 +335,10 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    int exponent = (x + 127), result;
+    result = exponent << 23;
+    if(x < 0)return 0;
+    if(x > 128)return 0x7F800000;
+
+    return result;
 }
